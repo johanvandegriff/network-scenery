@@ -1,3 +1,16 @@
-<h1>main page</h1>
-<p>{{ text }}</p>
-<p>Network Viz</p>
+<html>
+    <head>
+        <link rel="stylesheet" type="text/css" href="/static/style.css">
+    </head>
+    <body>
+        <h1>Network Viz</h1>
+        <h2>The best in the biz.<h2>
+        <table style="width : 100%">
+            <tr><th>IP address</th><th>MAC adress</th><th>Device</th></tr>
+            {{data|safe}}
+        </table>
+    </body>
+</html>
+<form action="/profile">
+<button type="submit">Start Here !</button>
+</form>
