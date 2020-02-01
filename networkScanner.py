@@ -1,12 +1,23 @@
 import subprocess
+from sense_hat import SenseHat
 
 # this function will return a list of lists describing the list of devices in the network
 # format: [IP, MAC, NAME/MANUFACTURER]
 # find out interface by running ifconfig and determining which interface is being used, like eth0 or wlp3s0
-def scanner(INTERFACE):
-	# use subprocess.run to run the command 
-	cliOutput = subprocess.run(['arp-scan', '--interface=%s' %INTERFACE, '--localnet'], stdout=subprocess.PIPE)
-	# extract the output from the subprocess
-	strOutput = cliOutput.stdout.decode()
-	# generate a list of lists in the specified format and return it
-	return [i.split('\t') for i in strOutput('\n')][2:-4]
+def scan(interface):
+  # use subprocess.run to run the command 
+  cliOutput = subprocess.run(['sudo', 'arp-scan', '--localnet', '--interface=' + interface], stdout=subprocess.PIPE)
+  # extract the output from the subprocess
+  strOutput = cliOutput.stdout.decode()
+  # generate a list of lists in the specified format and return it
+  #return strOutput
+  return [i.split('\t') for i in strOutput.split('\n')][2:-4]
+
+sense = SenseHat()
+
+s = scan("wlan0")
+print(len(s))
+print(s[0])
+
+sense.clear()
+sense.set_pixel(2, 2, (0, min(len(s), 255), 0))
