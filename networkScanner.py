@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-import subprocess
+import subprocess, datetime
 
 # this function will return a list of lists describing the list of devices in the network
 # format: [IP, MAC, NAME/MANUFACTURER]
@@ -12,6 +12,30 @@ def scan(interface):
     # generate a list of lists in the specified format and return it
     #return strOutput
     return [i.split('\t') for i in strOutput.split('\n')][2:-4]
+
+def scanDict(interface):
+    ts = datetime.datetime.now().timestamp() #seconds since the epoch (floating point)
+    data = scan(interface)
+    result = []
+    for item in data:
+        if len(item) < 3: continue
+        ip = item[0]
+        mac = item[1]
+        device = item[2]
+        dup = False
+        for other in result:
+            if mac == other['MAC']:
+                dup = True
+                continue
+        if dup:
+            continue
+        result.append({
+            "IP": ip,
+            "MAC": mac,
+            "device": device,
+            "time": ts
+        })
+    return result
 
 if __name__ == "__main__":
     from sense_hat import SenseHat
