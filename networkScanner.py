@@ -13,28 +13,32 @@ def scan(interface):
     #return strOutput
     return [i.split('\t') for i in strOutput.split('\n')][2:-4]
 
-def scanDict(interface):
+def scanDict(interfaces):
     ts = datetime.datetime.now().timestamp() #seconds since the epoch (floating point)
-    data = scan(interface)
+    data = {}
+    for interface, network in interfaces.items():
+        data[network] = scan(interface)
     result = []
-    for item in data:
-        if len(item) < 3: continue
-        ip = item[0]
-        mac = item[1]
-        device = item[2]
-        dup = False
-        for other in result:
-            if mac == other['MAC']:
-                dup = True
+    for network, lines in data.items():
+        for item in lines:
+            if len(item) < 3: continue
+            ip = item[0]
+            mac = item[1]
+            device = item[2]
+            dup = False
+            for other in result:
+                if mac == other['MAC']:
+                    dup = True
+                    continue
+            if dup:
                 continue
-        if dup:
-            continue
-        result.append({
-            "IP": ip,
-            "MAC": mac,
-            "device": device,
-            "time": ts
-        })
+            result.append({
+                "IP": ip,
+                "MAC": mac,
+                "device": device,
+                "network": network,
+                "time": ts
+            })
     return result
 
 if __name__ == "__main__":

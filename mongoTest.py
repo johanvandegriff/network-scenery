@@ -1,7 +1,9 @@
 from pymongo import MongoClient
 import json
 
-with open('secret.json') as f:
+ROOT = "/home/pi/Nextcloud/NetworkVisualizer/network-scenery/"
+
+with open(ROOT + '/secret.json') as f:
   key = json.load(f)['mongodb']
 
 #key += "&ssl=true&ssl_cert_reqs=CERT_NONE"

@@ -6,11 +6,14 @@
         <h1>Network Viz</h1>
         <h2>The best in the biz.</h2>
         <p>Your IP: {{ ip }}</p>
+        <p>Your MAC: {{ mac }}</p>
+        <p>Last scan at: {{ time }}</p>
+
         <form action="/profile">
           <button type="submit">Start Here</button>
         </form>
         <table style="width : 100%">
-            <tr><th>IP address</th><th>MAC adress</th><th>Device</th></tr>
+            <tr><th>Network</th><th>IP address</th><th>MAC address</th><th>Device</th></tr>
             {{data|safe}}
         </table>
     </body>

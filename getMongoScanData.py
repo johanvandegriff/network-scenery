@@ -2,21 +2,21 @@ import json
 from pymongo import MongoClient
 from networkScanner import scan, scanDict
 
-INTERFACE = "wlan1"
+INTERFACES = {"wlan1": ""}
+ROOT = "/home/pi/Nextcloud/NetworkVisualizer/network-scenery/"
 
-with open('secret.json') as f:
+with open(ROOT + '/secret.json') as f:
   key = json.load(f)['mongodb']
 
 client = MongoClient(key)
 db = client.networkviz
 
-print(db.scans)
+print(db.arp_scans)
 
-#s = scanDict(INTERFACE)
+#s = scanDict(INTERFACES)
 
 #print(s)
 
-#print(db.scans.insert_many(s))
+#print(db.arp_scans.insert_many(s))
 #print(people.insert_one(me))
-for doc in db.scans.find({}):
-    print(doc)
+for doc in db.arp_scans.find({}): print(doc)
