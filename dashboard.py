@@ -39,6 +39,17 @@ def getMacFromIP(ip):
         return device['MAC']
 
 
+def getMostRecentTime():
+    times = [x for x in db.arp_scan_times.find({}).sort("time", -1)]
+    if len(times) > 0:
+        mostRecentTime = times[0]['time']
+        timeFilter = {'time': mostRecentTime}
+        mostRecentTimeStr = convertTimeStampToDate(mostRecentTime)
+    else:
+        timeFilter = {}
+        mostRecentTimeStr = ""
+    return timeFilter, mostRecentTimeStr
+
 @app.route("/")
 def main():
     clearLeftHalf()
@@ -75,23 +86,11 @@ def main():
     sense.set_pixel(2,7,green) #8 green
     sense.set_pixel(3,6,green) #8 green
     sense.set_pixel(3,7,green) #8 green
+
+    timeFilter, mostRecentTimeStr = getMostRecentTime()
+
     table = ""
-
-#    with open("/home/pi/lastTime.json", 'r') as f:
-#        lastTime = json.load(f) #json loads it as a float
-
-    times = [x for x in db.arp_scan_times.find({}).sort("time", -1)]
-    if len(times) > 0:
-        mostRecentTime = times[0]['time']
-        filter = {'time': mostRecentTime}
-        mostRecentTimeStr = convertTimeStampToDate(mostRecentTime)
-    else:
-        filter = {}
-        mostRecentTimeStr = ""
-
-    print(filter)
-
-    for doc in db.arp_scans.find(filter):
+    for doc in db.arp_scans.find(timeFilter):
         table += "<tr>"
         table += "<td>" + doc["network"] + "</td>\n"
         table += "<td>" + doc["IP"] + "</td>\n"
@@ -101,6 +100,103 @@ def main():
 
     ip = request.remote_addr
     return render_template("index.html", data=table, time=mostRecentTimeStr, ip=ip, mac=getMacFromIP(ip))
+
+@app.route("/arp")
+def arp():
+    timeFilter, mostRecentTimeStr = getMostRecentTime()
+
+    table = []
+    for doc in db.arp_scans.find(timeFilter):
+        table.append([doc["network"], doc["IP"], doc["MAC"], doc["device"]])
+    return json.dumps({"time": mostRecentTimeStr, "arp": table})
+
+@app.route("/users")
+def users():
+    users = []
+    for user in db.users.find():
+        del user["_id"]
+        users.append(user)
+    requests = []
+    for request in db.requests.find():
+        del request["_id"]
+        requests.append(request)
+    return json.dumps({"users": users, "requests": requests})
+
+@app.route("/approve")
+def approve():
+    macFrom = request.args.get("from", "")
+    macTo = request.args.get("to", "")
+    username = request.args.get("username", "")
+    ip = request.remote_addr
+    mac = getMacFromIP(ip)
+    if mac != macTo:
+        return json.dumps({"result": False, "error": "this request is not to you"})
+    entry = db.requests.find_one({"from": macFrom, "to": macTo, "username": username})
+    if entry is None:
+        return json.dumps({"result": False, "error": "the requested request does not exist in requests!"})
+    
+    db.requests.delete_many({"from": macFrom, "to": macTo, "username": username})
+
+    entry = db.users.find_one({"MAC": macFrom})
+    if entry is not None:
+        print("MAC address already in database, username updated")
+        db.users.update_one({"MAC": macFrom}, { "$set": { "username": username } })
+    else:
+        db.users.insert_one({"MAC": macFrom, "username": username})
+    return json.dumps({"result": True})
+
+@app.route("/deny")
+def deny():
+    macFrom = request.args.get("from", "")
+    macTo = request.args.get("to", "")
+    username = request.args.get("username", "")
+    ip = request.remote_addr
+    mac = getMacFromIP(ip)
+    if mac != macTo and mac != macFrom:
+        return json.dumps({"result": False, "error": "this request is not to you or from you"})
+    entry = db.requests.find_one({"from": macFrom, "to": macTo, "username": username})
+    if entry is None:
+        return json.dumps({"result": False, "error": "the requested request does not exist in requests!"})
+    
+    db.requests.delete_many({"from": macFrom, "to": macTo, "username": username})
+
+    return json.dumps({"result": True})
+
+@app.route("/usersOverTime")
+def usersOverTime():
+    data = db.arp_scan_times.find()
+    data = [x for x in data]
+    for item in data:
+        del item["_id"]
+        item["timeStr"] = convertTimeStampToDate(item["time"])
+    return json.dumps({"usersOverTime": data})
+
+@app.route("/setUsername")
+def setUsername():
+    username = request.args.get("username", "")
+    if username is None or username == "":
+        return json.dumps({"result": False, "error": "missing username"})
+    ip = request.remote_addr
+    mac = getMacFromIP(ip)
+    if mac is None:
+        return json.dumps({"result": False, "error": "MAC address not found in database"})
+    entry = db.users.find_one({"username": username})
+    if entry is not None:
+        if entry["MAC"] == mac: #don't need permission for this device itself
+            return json.dumps({"result": True})
+        #the username is already associated with another device. need to send a request
+        db.requests.insert_one({"from": mac, "to": entry["MAC"], "username": username})
+        return json.dumps({"result": False, "error": "username already in database"})
+
+    entry = db.users.find_one({"MAC": mac})
+    if entry is not None:
+        print("MAC address already in database, username updated")
+        db.users.update_one({"MAC": mac}, { "$set": { "username": username } })
+    else:
+        db.users.insert_one({"MAC": mac, "username": username})
+    return json.dumps({"result": True})
+
+    
 
 @app.route("/profile")
 def test():

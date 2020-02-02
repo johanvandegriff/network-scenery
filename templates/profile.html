@@ -1,14 +1,134 @@
-<html>
-    <head>
-        <link rel="stylesheet" type="text/css" href="/static/style.css">
-    </head>
-    <body>
-        <h1>Network Viz</h1>
-        <h2>The best in the biz.</h2>
-          Profile
-        <p>Your IP: {{ ip }}</p>
-    </body>
-</html>
-<form action="/">
-<button type="submit">Back</button>
-</form>
+{% include 'header.html' %}
+
+        <div id="app">
+            <div class="leftCol">
+                <h1>NetworkViz</h1>
+                <h4>The best in the biz.</h4>
+                
+                <form action="/">
+                    <button type="submit">Back to Main</button>
+                </form>
+                
+                <h2>Your Profile</h2>
+                <p>IP address: {{ ip }}</p>
+                <p>MAC address: {{ mac }}</p>
+                
+                <p>Current Username: [[ username ]]</p>
+                <input type="text" v-model.text="newUsername">
+                <input type="submit" value="Set Nickname" onclick="app.setUsername()">
+                
+                <p v-if="request != undefined">Device [[ request.from ]] is requesting to share your nickname. <input type="submit" value="Approve" onclick="app.approve()"><input type="submit" value="Deny" onclick="app.deny()"></p>
+                
+                <p v-if="requestMadeByMe != undefined">You requested the nickname [[ requestMadeByMe.username ]] from device [[ requestMadeByMe.to ]].<input type="submit" value="Cancel" onclick="app.cancel()"></p>
+            </div>
+            <div class="rightCol">
+                <h2>Your Devices</h2>
+                <ul>
+                    <li v-for="device in devices">
+                        [[ device ]]<span v-if="device == mac" style="color: green"> (this)</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        
+        <script>
+            const app = new Vue ({
+                delimiters: ['[[',']]'],
+                el: "#app",
+                data: {
+                    ip: "{{ ip }}",
+                    mac: "{{ mac }}",
+                    username: "",
+                    newUsername: "",
+                    users: undefined,
+                    request: undefined,
+                    requestMadeByMe: undefined,
+                    devices: undefined
+                },
+                created () {
+                    this.getData();
+                },
+                methods: {
+                    setUsername: function() {
+                        fetch('/setUsername?username='+this.newUsername)
+                        .then(response => response.json())
+                        .then(json => {
+                            console.log(json);
+                            this.getData();
+                        });
+                    },
+                    getData: function() {
+                        fetch('/users')
+                        .then(response => response.json())
+                        .then(json => {
+                            console.log(json.users);
+                            console.log(json.requests);
+                            users = {}
+                            for (row of json.users) {
+                                users[row.MAC] = row.username;
+                            }
+                            console.log(users);
+                            this.users = users;
+                            
+                            if (this.mac in this.users) {
+                                console.log(this.mac, this.users[this.mac]);
+                                this.username = this.users[this.mac];
+                            }
+                            
+                            this.devices = [];
+                            for (mac in this.users) {
+                                if (this.users[mac] == this.username) {
+                                    this.devices.push(mac);
+                                }
+                            }
+                            
+                            request = undefined;
+                            requestMadeByMe = undefined;
+                            for (req of json.requests) {
+                                if(req.to == this.mac && req.username == this.username) {
+                                    request = req;
+                                }
+                                if(req.from == this.mac) {
+                                    requestMadeByMe = req;
+                                }
+                            }
+                            this.request = request;
+                            this.requestMadeByMe = requestMadeByMe;
+                        });
+                    },
+                    approve: function() {
+                        fetch('/approve?from='+this.request.from+'&to='+this.request.to+'&username='+this.request.username)
+                        .then(response => response.json())
+                        .then(json => {
+                            console.log(json);
+                            this.request = undefined;
+                        });
+                    },
+                    deny: function() {
+                        fetch('/deny?from='+this.request.from+'&to='+this.request.to+'&username='+this.request.username)
+                        .then(response => response.json())
+                        .then(json => {
+                            console.log(json);
+                            this.request = undefined;
+                        });
+                    },
+                    cancel: function() {
+                        fetch('/deny?from='+this.requestMadeByMe.from+'&to='+this.requestMadeByMe.to+'&username='+this.requestMadeByMe.username)
+                        .then(response => response.json())
+                        .then(json => {
+                            console.log(json);
+                            this.request = undefined;
+                        });
+                    }
+                },
+                mounted () {
+                    setInterval(() => {
+                        this.getData();
+                    }, 500); //every 0.5 sec
+                }
+            });
+            
+        </script>
+        
+{% include 'footer.html' %}

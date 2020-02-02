@@ -31,6 +31,6 @@ if __name__ == "__main__":
         #with open("/home/pi/lastTime.json", 'w') as f:
         #    json.dump(mostRecenTime, f)
 
-        print(db.arp_scan_times.insert_one({'time': mostRecentTime}))
+        print(db.arp_scan_times.insert_one({'time': mostRecentTime, 'len': len(s)}))
         print(db.arp_scans.insert_many(s))
     sense.set_pixel(7, 7, (0, 255, 0))

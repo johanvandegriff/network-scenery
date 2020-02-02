@@ -1,36 +1,225 @@
-<html>
-    <head>
-        <link rel="stylesheet" type="text/css" href="/static/style.css">
-        
-        <script src="/static/vue-2.6.11.js"></script>
-        
-        <script type="text/javascript" src="/static/sorttable2.js"></script>
-        
-        <link rel="stylesheet" href="/static/chartist.min.css">
-        <script src="/static/chartist.min.js"></script>
-        <script src="/static/chartist-plugin-axistitle.min.js"></script>
-    </head>
-    <body>
-        <h1>Network Viz</h1>
-        <h2>The best in the biz.</h2>
-        <p>Your IP: {{ ip }}</p>
-        <p>Your MAC: {{ mac }}</p>
-        <p>Last scan at: {{ time }}</p>
+{% include 'header.html' %}
 
-        <form action="/profile">
-          <button type="submit">Start Here</button>
-        </form>
-        <table id="arp" style="width : 100%">
-            <thead>
-                <tr>
-                    <th onclick="sortTable('arp', 0, false)">Network</th>
-                    <th onclick="sortTable('arp', 1, false)">IP address</th>
-                    <th onclick="sortTable('arp', 2, false)">MAC address</th>
-                    <th onclick="sortTable('arp', 3, false)">Device</th>
-                </tr>
-            </thead><tbody>
-                {{ data|safe }}
-            </tbody>
-        </table>
-    </body>
-</html>
+        <div id="app">
+            <div class="leftCol">
+                <h1>NetworkViz</h1>
+                <h4>The best in the biz.</h4>
+                
+                <form action="/profile">
+                    <button type="submit">Your Profile</button>
+                </form>
+                
+                <p>Your IP: {{ ip }}</p>
+                <p>Your MAC: {{ mac }}</p>
+                <p>Last scan at: [[ time ]]</p>
+                
+                <h2>Charts</h2>
+                <div class="ct-chart ct-perfect-fourth" id="usersOverTimeChart"></div>
+            </div>
+            <div class="rightCol">
+                <table class="grayTable">
+                    <thead>
+                        <tr>
+                            <th onclick="app.sortArp(0)">Network</th>
+                            <th onclick="app.sortArp(1)">IP address</th>
+                            <th onclick="app.sortArp(2)">MAC address</th>
+                            <th onclick="app.sortArp(3)">Device</th>
+                            <th onclick="app.sortArp(4)">Owner</th>
+                        </tr>
+                    </thead><tbody>
+                        <tr v-for="row in arp">
+                            <td v-for="item in row">[[ item ]]</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <script>
+            const app = new Vue ({
+                delimiters: ['[[',']]'],
+                el: "#app",
+                data: {
+                    ip: "{{ ip }}",
+                    mac: "{{ mac }}",
+                    time: "{{ time }}",
+                    arp: undefined,
+                    users: undefined,
+                    usersOverTime: undefined,
+                    times: [],
+                    numUsers: [],
+                    arpSortKey: 1, //sort by IP address
+                    arpSortDesc: false,
+                    updateCharts: false
+                },
+                created () {
+                    this.getData();
+                },
+                methods: {
+                    getData: function() {
+                        fetch('/users')
+                        .then(response => response.json())
+                        .then(json => {
+                            console.log(json.users);
+                            this.users = {}
+                            for (row of json.users) {
+                                this.users[row.MAC] = row.username;
+                            }
+                            console.log(this.users);
+                        });
+                        fetch('/arp')
+                        .then(response => response.json())
+                        .then(json => {
+                            this.arp = json.arp;
+                            for (row of this.arp) {
+                                if (row[2] in app.users) {
+                                    row.push(app.users[row[2]]);
+                                } else {
+                                    row.push("-");
+                                }
+                            }
+                            this.arpSortDesc = !this.arpSortDesc;
+                            this.sortArp(this.arpSortKey);
+                            this.time = json.time;
+                            console.log(this.time);
+                        });
+                        fetch('/usersOverTime')
+                        .then(response => response.json())
+                        .then(json => {
+                            this.usersOverTime = json.usersOverTime;
+                            //console.log(this.usersOverTime);
+                            this.times = [];
+                            this.numUsers = [];
+                            first = true;
+                            firstTime = 0;
+                            for (row of this.usersOverTime) {
+                                if (first) {
+                                    firstTime = row.time;
+                                }
+                                this.times.push(Math.round((row.time - firstTime)/60/60)); //number of mins since start
+                                this.numUsers.push(row.len);
+                                first = false;
+                            }
+                            this.updateCharts = true;
+                        });
+                    },
+                    sortArp: function(key) {
+                        //console.log(key, this.arpSortKey, key == this.arpSortKey, this.arpSortDesc)
+                        if (key == this.arpSortKey) {
+                            this.arpSortDesc = !this.arpSortDesc;
+                        } else {
+                            this.arpSortDesc = false;
+                        }
+                        this.arpSortKey = key;
+                        
+                        this.arp.sort(function(a,b) {
+                            if (app.arpSortDesc) {
+                                return b[app.arpSortKey].localeCompare(a[app.arpSortKey]);
+                            } else {
+                                return a[app.arpSortKey].localeCompare(b[app.arpSortKey]);
+                            }
+                        })
+                    }
+                },
+                mounted () {
+                    setInterval(() => {
+                        this.getData();
+                    }, 10000); //every 10 sec
+                }
+            });
+            
+            
+            
+            
+            
+            
+            
+            function settings (xlabel, ylabel) {
+                return {
+                    chartPadding: {
+                        top: 20,
+                        right: 0,
+                        bottom: 30,
+                        left: 20
+                    },
+                    axisY: {
+                        onlyInteger: true
+                    },
+                    plugins: [
+                        Chartist.plugins.ctAxisTitle({
+                        axisX: {
+                            axisTitle: xlabel,
+                            axisClass: 'ct-axis-title',
+                            offset: {
+                            x: 0,
+                            y: 50
+                            },
+                            textAnchor: 'middle'
+                        },
+                        axisY: {
+                            axisTitle: ylabel,
+                            axisClass: 'ct-axis-title',
+                            offset: {
+                            x: 0,
+                            y: -15
+                            },
+                            textAnchor: 'middle',
+                            flipTitle: false
+                        }
+                        })
+                    ]
+                };
+            }
+
+            function histogram(maxGame, property) {
+                if (maxGame == undefined) {
+                    return {
+                        labels: [],
+                        series: [[]]
+                    };
+                }
+                hs = maxGame[property];
+                bins = []
+                data = []
+                if (hs < 10) {
+                    for (var i=0; i<=hs; i++) {
+                        bins.push(i);
+                        data.push(0);
+                    }
+                } else {
+                    for (var i=1; i<=10; i++) {
+                        // bins.push(i*hs/10);
+                        // bins.push(Math.round(i*hs/10));
+                        bins.push(Math.round(i*hs)/10);
+                        data.push(0);
+                    }
+                }
+
+                for (var i=0; i<app.games.length; i++) {
+                    s = app.games[i][property]
+                    for (var j=0; j<bins.length; j++) {
+                        if (Math.round(s*10)/10 <= bins[j]) {
+                            data[j]++;
+                            break;
+                        }
+                    }
+                }
+                return {
+                    labels: bins,
+                    series: [data]
+                };
+            }
+
+            function charts() {
+                new Chartist.Line('#usersOverTimeChart', {labels: app.times, series: [app.numUsers]}, settings("time (hours)", "# of users"));
+            }
+            charts();
+            setInterval(function(){
+                if (app.updateCharts) {
+                    app.updateCharts = false;
+                    charts();
+                }
+            }, 1000);
+        </script>
+
+{% include 'footer.html' %}
