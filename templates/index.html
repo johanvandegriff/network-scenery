@@ -1,6 +1,14 @@
 <html>
     <head>
         <link rel="stylesheet" type="text/css" href="/static/style.css">
+        
+        <script src="/static/vue-2.6.11.js"></script>
+        
+        <script type="text/javascript" src="/static/sorttable2.js"></script>
+        
+        <link rel="stylesheet" href="/static/chartist.min.css">
+        <script src="/static/chartist.min.js"></script>
+        <script src="/static/chartist-plugin-axistitle.min.js"></script>
     </head>
     <body>
         <h1>Network Viz</h1>
@@ -12,9 +20,17 @@
         <form action="/profile">
           <button type="submit">Start Here</button>
         </form>
-        <table style="width : 100%">
-            <tr><th>Network</th><th>IP address</th><th>MAC address</th><th>Device</th></tr>
-            {{data|safe}}
+        <table id="arp" style="width : 100%">
+            <thead>
+                <tr>
+                    <th onclick="sortTable('arp', 0, false)">Network</th>
+                    <th onclick="sortTable('arp', 1, false)">IP address</th>
+                    <th onclick="sortTable('arp', 2, false)">MAC address</th>
+                    <th onclick="sortTable('arp', 3, false)">Device</th>
+                </tr>
+            </thead><tbody>
+                {{ data|safe }}
+            </tbody>
         </table>
     </body>
 </html>
